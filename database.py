@@ -1,31 +1,33 @@
-import csv
+import sqlite3
 from datetime import datetime
 import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-CSV_FILE_PATH = os.path.join(DATA_DIR, "astrology_records.csv")
+DB_FILE_PATH = os.path.join(DATA_DIR, "astrology_records.db")
 
 
 def init_excel_db():
     os.makedirs(DATA_DIR, exist_ok=True)
-    if not os.path.exists(CSV_FILE_PATH):
-        with open(
-            CSV_FILE_PATH, mode="w", newline="", encoding="utf-8-sig"
-        ) as file:
-            writer = csv.writer(file)
-            writer.writerow([
-                "Timestamp",
-                "Mode",
-                "Category / Focus",
-                "Language",
-                "User Name",
-                "User DOB",
-                "Partner Name",
-                "Partner DOB",
-                "Compatibility Score",
-                "Reading / Remedies",
-            ])
+    conn = sqlite3.connect(DB_FILE_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS astrology_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            mode TEXT,
+            category TEXT,
+            language TEXT,
+            user_name TEXT,
+            user_dob TEXT,
+            partner_name TEXT,
+            partner_dob TEXT,
+            compatibility_score TEXT,
+            reading_remedies TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
 
 def append_reading_record(
@@ -43,19 +45,32 @@ def append_reading_record(
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     clean_analysis = analysis_text.replace("\n", " ")
 
-    with open(
-        CSV_FILE_PATH, mode="a", newline="", encoding="utf-8-sig"
-    ) as file:
-        writer = csv.writer(file)
-        writer.writerow([
+    conn = sqlite3.connect(DB_FILE_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO astrology_records (
             timestamp,
-            mode.upper(),
+            mode,
             category,
             language,
             user_name,
             user_dob,
-            partner_name if partner_name else "N/A",
-            partner_dob if partner_dob else "N/A",
-            score if score else "N/A",
-            clean_analysis,
-        ])
+            partner_name,
+            partner_dob,
+            compatibility_score,
+            reading_remedies
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        timestamp,
+        mode.upper(),
+        category,
+        language,
+        user_name,
+        user_dob,
+        partner_name if partner_name else "N/A",
+        partner_dob if partner_dob else "N/A",
+        score if score else "N/A",
+        clean_analysis,
+    ))
+    conn.commit()
+    conn.close()

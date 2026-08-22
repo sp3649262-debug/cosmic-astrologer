@@ -239,34 +239,8 @@ async def analyze_astrology(data: AstroPayload):
 
     return {"status": "success", "score": score, "analysis": clean_text}
 
-import sqlite3
-from fastapi.responses import HTMLResponse
+from fastapi.responses import RedirectResponse
 
-@app.get("/records", response_class=HTMLResponse)
+@app.get("/records")
 def show_all_records():
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "astrology_records.db")
-    
-    if not os.path.exists(db_path):
-        return "<h3>No records found yet.</h3>"
-
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT timestamp, mode, category, language, user_name, user_dob, partner_name, partner_dob, compatibility_score FROM astrology_records ORDER BY id DESC")
-    rows = cursor.fetchall()
-    conn.close()
-
-    html = """
-    <html>
-    <head><title>Astrology Records</title></head>
-    <body style="font-family: sans-serif; padding: 20px; background: #0f172a; color: #f8fafc;">
-        <h2>Cosmic Astrologer - User Records</h2>
-        <table border="1" cellpadding="10" style="border-collapse: collapse; border-color: #334155; width: 100%;">
-            <tr style="background: #1e293b; color: #38bdf8;">
-                <th>Time</th><th>Mode</th><th>Category</th><th>Lang</th><th>User Name</th><th>DOB</th><th>Partner</th><th>Partner DOB</th><th>Score</th>
-            </tr>
-    """
-    for r in rows:
-        html += f"<tr><td>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td><td>{r[4]}</td><td>{r[5]}</td><td>{r[6]}</td><td>{r[7]}</td><td>{r[8]}</td></tr>"
-    
-    html += "</table></body></html>"
-    return html
+    return RedirectResponse(url="https://docs.google.com/spreadsheets/d/1ZDW06n4Gi1Uy6Z4gegNRoldneSuW2jmem_u7lakY5YU/edit")

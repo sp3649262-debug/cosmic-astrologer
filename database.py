@@ -1,33 +1,41 @@
-import sqlite3
-from datetime import datetime
 import os
+import json
+import gspread
+from datetime import datetime
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-DB_FILE_PATH = os.path.join(DATA_DIR, "astrology_records.db")
+# Google Sheets কানেকশন ইনিশিয়ালাইজেশন
+sheet = None
+
+def get_sheet():
+    global sheet
+    if sheet is not None:
+        return sheet
+
+    try:
+        if "GOOGLE_CREDENTIALS" in os.environ:
+            # Render Environment Variable থেকে ক্রেডেনশিয়াল পড়বে
+            creds_info = os.environ["GOOGLE_CREDENTIALS"]
+            if isinstance(creds_info, str):
+                creds_dict = json.loads(creds_info)
+            else:
+                creds_dict = creds_info
+            gc = gspread.service_account_from_dict(creds_dict)
+        else:
+            # লোকাল টেস্টিংয়ের জন্য সরাসরি ফাইল থেকে পড়বে
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            json_path = os.path.join(base_dir, "service_account.json")
+            gc = gspread.service_account(filename=json_path)
+
+        sh = gc.open("Cosmic_Astrology_Records")
+        sheet = sh.sheet1
+        return sheet
+    except Exception as e:
+        print(f"[GOOGLE SHEETS AUTH ERROR]: {e}")
+        return None
 
 
 def init_excel_db():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    conn = sqlite3.connect(DB_FILE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS astrology_records (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            mode TEXT,
-            category TEXT,
-            language TEXT,
-            user_name TEXT,
-            user_dob TEXT,
-            partner_name TEXT,
-            partner_dob TEXT,
-            compatibility_score TEXT,
-            reading_remedies TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
+    pass  # Google Sheets ক্লাউডে সরাসরি তৈরি থাকে
 
 
 def append_reading_record(
@@ -41,26 +49,15 @@ def append_reading_record(
     score: str,
     analysis_text: str,
 ):
-    init_excel_db()
+    active_sheet = get_sheet()
+    if active_sheet is None:
+        print("[SHEET ERROR]: Could not connect to Google Sheet.")
+        return
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     clean_analysis = analysis_text.replace("\n", " ")
 
-    conn = sqlite3.connect(DB_FILE_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO astrology_records (
-            timestamp,
-            mode,
-            category,
-            language,
-            user_name,
-            user_dob,
-            partner_name,
-            partner_dob,
-            compatibility_score,
-            reading_remedies
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
+    row_data = [
         timestamp,
         mode.upper(),
         category,
@@ -71,6 +68,10 @@ def append_reading_record(
         partner_dob if partner_dob else "N/A",
         score if score else "N/A",
         clean_analysis,
-    ))
-    conn.commit()
-    conn.close()
+    ]
+
+    try:
+        active_sheet.append_row(row_data)
+        print("[SHEET SUCCESS]: Record inserted successfully.")
+    except Exception as err:
+        print(f"[SHEET APPEND ERROR]: {err}")

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cosmic AI Astrologer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js 3D WebGL Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.4);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans overflow-x-hidden relative flex flex-col justify-between">
+
+  <!-- 3D WebGL Background Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- Main Viewport Layout -->
+  <main class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen flex items-center">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center w-full">
+      
+      <!-- Left Column: Branding & 3D Celestial Focus -->
+      <div class="lg:col-span-6 pointer-events-none space-y-4 text-center lg:text-left py-6">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full text-amber-400 text-xs font-semibold tracking-widest uppercase shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+          AI Vedic Synastry Engine
+        </div>
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-amber-200 via-rose-300 to-indigo-400 leading-tight">
+          Cosmic Astrologer & Kundali
+        </h1>
+        <p class="text-sm sm:text-base text-slate-400 max-w-lg mx-auto lg:mx-0 leading-relaxed">
+          Planetary alignments, destiny forecasting, career & love guidance, and personalized astrological remedies.
+        </p>
+        <p class="text-xs text-slate-500 hidden lg:block">
+          ✨ Tip: Click and drag on the left side to rotate the planet.
+        </p>
+      </div>
+
+      <!-- Right Column: Consultation Glassmorphic Card -->
+      <div class="lg:col-span-6">
+        <div class="bg-slate-900/80 border border-slate-800/90 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+          
+          <!-- Mode Switcher Tabs -->
+          <div class="flex justify-center mb-6">
+            <div class="bg-slate-800/80 p-1.5 rounded-2xl flex space-x-2 border border-slate-700/60 backdrop-blur-md">
+              <button type="button" id="singleTabBtn" onclick="switchMode('single')" class="px-6 py-2 rounded-xl text-sm font-bold transition bg-amber-500 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.4)]">
+                🙋 Single
+              </button>
+              <button type="button" id="coupleTabBtn" onclick="switchMode('couple')" class="px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400 hover:text-white">
+                💑 Couple
+              </button>
+            </div>
+          </div>
+
+          <!-- Astrological Details Input Form -->
+          <form id="astroForm" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              <!-- Primary User Input Card -->
+              <div class="p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-md" id="userCard">
+                <h2 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Your Details</h2>
+                <label class="block text-xs text-slate-300 mb-1">Your Name</label>
+                <input type="text" id="userName" required class="w-full bg-slate-900/80 border border-slate-700/70 rounded-xl p-2.5 text-sm text-white focus:border-amber-400 focus:outline-none mb-3" placeholder="Enter your full name">
+                
+                <label class="block text-xs text-slate-300 mb-1">Date of Birth</label>
+                <input type="date" id="userDob" required class="w-full bg-slate-900/80 border border-slate-700/70 rounded-xl p-2.5 text-sm text-white focus:border-amber-400 focus:outline-none">
+              </div>
+
+              <!-- Partner Input Card (Conditional Display) -->
+              <div class="p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 backdrop-blur-md hidden" id="partnerCard">
+                <h2 class="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2">Partner's Details</h2>
+                <label class="block text-xs text-slate-300 mb-1">Partner's Name</label>
+                <input type="text" id="partnerName" class="w-full bg-slate-900/80 border border-slate-700/70 rounded-xl p-2.5 text-sm text-white focus:border-rose-400 focus:outline-none mb-3" placeholder="Enter partner's name">
+                
+                <label class="block text-xs text-slate-300 mb-1">Partner's DOB</label>
+                <input type="date" id="partnerDob" class="w-full bg-slate-900/80 border border-slate-700/70 rounded-xl p-2.5 text-sm text-white focus:border-rose-400 focus:outline-none">
+              </div>
+            </div>
+
+            <!-- Focus Category & Language Selectors Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">🔮 Focus Topic (কিসের উপর জানতে চান)</label>
+                <select id="category" class="w-full bg-slate-800/80 border border-slate-700/70 rounded-xl p-2.5 text-sm text-white focus:border-amber-400 focus:outline-none">
+                  <option value="Complete Life & Future (সমগ্র জীবন ও ভাগ্য)" selected>🌌 Complete Life & Future</option>
+                  <option value="Love & Marriage (প্রেম ও দাম্পত্য)">💘 Love & Marriage</option>
+                  <option value="Career, Job & Business (চাকরি ও ব্যবসা)">💼 Career, Job & Business</option>
+                  <option value="Wealth & Finance (অর্থ ও ধনসম্পদ)">💰 Wealth & Finance</option>
+                  <option value="Higher Education & Exams (শিক্ষা ও পরীক্ষা)">📚 Education & Exams</option>
+                  <option value="Health & Peace of Mind (স্বাস্থ্য ও শান্তি)">🌿 Health & Well-being</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">🌐 Select Language</label>
+                <select id="language" class="w-full bg-slate-800/80 border border-slate-700/70 rounded-xl p-2.5 text-sm text-white focus:border-indigo-400 focus:outline-none">
+                  <option value="Bengali" selected>Bengali (বাংলা)</option>
+                  <option value="Banglish">Banglish (Bengali in English letters)</option>
+                  <option value="English">English</option>
+                  <option value="Hindi">Hindi (हिंदी)</option>
+                  <option value="Hinglish">Hinglish (Hindi in English letters)</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-extrabold rounded-2xl transition duration-200 shadow-[0_0_25px_rgba(245,158,11,0.3)] text-sm tracking-wide">
+              🔮 Consult the Stars
+            </button>
+          </form>
+
+          <!-- Output Display Container -->
+          <div id="resultBox" class="hidden mt-6 pt-6 border-t border-slate-800/80">
+            <div id="scoreBadge" class="hidden inline-block bg-amber-400/10 border border-amber-400/30 text-amber-300 font-bold text-sm px-4 py-1.5 rounded-full mb-4 shadow-[0_0_15px_rgba(245,158,11,0.2)]"></div>
+            <div id="readingContent" class="p-4 bg-slate-950/80 border border-slate-800/90 rounded-2xl text-slate-200 text-sm leading-relaxed whitespace-pre-line custom-scroll max-h-80 overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    /* 3D WebGL Smooth Celestial Scene (Three.js) */
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    container.appendChild(renderer.domElement);
+
+    const celestialGroup = new THREE.Group();
+    scene.add(celestialGroup);
+
+    const corePlanet = new THREE.Mesh(
+      new THREE.SphereGeometry(2.3, 64, 64),
+      new THREE.MeshStandardMaterial({
+        color: 0x1e1b4b, roughness: 0.5, metalness: 0.2, emissive: 0x2e1065, emissiveIntensity: 0.3
+      })
+    );
+    celestialGroup.add(corePlanet);
+
+    const atmoMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(2.38, 64, 64),
+      new THREE.MeshStandardMaterial({
+        color: 0xf59e0b, transparent: true, opacity: 0.18, roughness: 0.1
+      })
+    );
+    celestialGroup.add(atmoMesh);
+
+    const ring1 = new THREE.Mesh(
+      new THREE.RingGeometry(3.2, 3.8, 64),
+      new THREE.MeshBasicMaterial({ color: 0xf43f5e, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+    );
+    ring1.rotation.x = Math.PI / 2.2;
+    ring1.rotation.y = Math.PI / 8;
+    celestialGroup.add(ring1);
+
+    const ring2 = new THREE.Mesh(
+      new THREE.RingGeometry(4.1, 4.25, 64),
+      new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide, transparent: true, opacity: 0.3 })
+    );
+    ring2.rotation.x = Math.PI / 2.2;
+    ring2.rotation.y = Math.PI / 8;
+    celestialGroup.add(ring2);
+
+    const moon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 32, 32),
+      new THREE.MeshStandardMaterial({ color: 0xfcd34d, emissive: 0xf59e0b, emissiveIntensity: 0.6 })
+    );
+    scene.add(moon);
+
+    const starsGeo = new THREE.BufferGeometry();
+    const starsCount = 1800;
+    const starPositions = new Float32Array(starsCount * 3);
+    for (let i = 0; i < starsCount * 3; i++) {
+      starPositions[i] = (Math.random() - 0.5) * 120;
+    }
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starField = new THREE.Points(
+      starsGeo,
+      new THREE.PointsMaterial({ color: 0xe0e7ff, size: 0.09, transparent: true, opacity: 0.7 })
+    );
+    scene.add(starField);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const sunLight = new THREE.DirectionalLight(0xffecd2, 2.2);
+    sunLight.position.set(-6, 4, 5);
+    scene.add(sunLight);
+
+    const purpleBackLight = new THREE.PointLight(0xa855f7, 3, 20);
+    purpleBackLight.position.set(5, -3, -4);
+    scene.add(purpleBackLight);
+
+    function updatePlanetPosition() {
+      if (window.innerWidth >= 1024) {
+        celestialGroup.position.set(-3.5, 0, 0);
+        camera.position.set(0, 0, 8);
+      } else {
+        celestialGroup.position.set(0, 2.8, -2);
+        camera.position.set(0, 0, 9);
+      }
+    }
+    updatePlanetPosition();
+
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    window.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      previousMousePosition = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const deltaX = e.clientX - previousMousePosition.x;
+        const deltaY = e.clientY - previousMousePosition.y;
+        celestialGroup.rotation.y += deltaX * 0.005;
+        celestialGroup.rotation.x += deltaY * 0.005;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      }
+    });
+
+    window.addEventListener('mouseup', () => isDragging = false);
+
+    let clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsedTime = clock.getElapsedTime();
+
+      if (!isDragging) {
+        celestialGroup.rotation.y += 0.003;
+        ring1.rotation.z += 0.002;
+      }
+
+      starField.rotation.y = elapsedTime * 0.012;
+      starField.rotation.x = Math.sin(elapsedTime * 0.008) * 0.03;
+
+      const orbitRadius = 4.6;
+      moon.position.x = celestialGroup.position.x + Math.cos(elapsedTime * 0.9) * orbitRadius;
+      moon.position.z = celestialGroup.position.z + Math.sin(elapsedTime * 0.9) * (orbitRadius * 0.6);
+      moon.position.y = celestialGroup.position.y + Math.sin(elapsedTime * 0.9) * 1.2;
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      updatePlanetPosition();
+    });
+
+    let currentMode = 'single';
+
+    function switchMode(mode) {
+      currentMode = mode;
+      const singleBtn = document.getElementById('singleTabBtn');
+      const coupleBtn = document.getElementById('coupleTabBtn');
+      const partnerCard = document.getElementById('partnerCard');
+      const userCard = document.getElementById('userCard');
+      const partnerName = document.getElementById('partnerName');
+      const partnerDob = document.getElementById('partnerDob');
+
+      if (mode === 'single') {
+        singleBtn.className = "px-6 py-2 rounded-xl text-sm font-bold transition bg-amber-500 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.4)]";
+        coupleBtn.className = "px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400 hover:text-white";
+        partnerCard.classList.add('hidden');
+        userCard.parentElement.classList.remove('sm:grid-cols-2');
+        partnerName.removeAttribute('required');
+        partnerDob.removeAttribute('required');
+      } else {
+        coupleBtn.className = "px-6 py-2 rounded-xl text-sm font-bold transition bg-rose-500 text-slate-950 shadow-[0_0_15px_rgba(244,63,94,0.4)]";
+        singleBtn.className = "px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400 hover:text-white";
+        partnerCard.classList.remove('hidden');
+        userCard.parentElement.classList.add('sm:grid-cols-2');
+        partnerName.setAttribute('required', 'true');
+        partnerDob.setAttribute('required', 'true');
+      }
+    }
+
+    switchMode('single');
+
+    document.getElementById('astroForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      const resultBox = document.getElementById('resultBox');
+      const scoreBadge = document.getElementById('scoreBadge');
+      const readingContent = document.getElementById('readingContent');
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Consulting the stars...";
+      resultBox.classList.add('hidden');
+
+      const payload = {
+        mode: currentMode,
+        category: document.getElementById('category').value,
+        language: document.getElementById('language').value,
+        user_name: document.getElementById('userName').value.trim(),
+        user_dob: document.getElementById('userDob').value,
+        partner_name: currentMode === 'couple' ? document.getElementById('partnerName').value.trim() : null,
+        partner_dob: currentMode === 'couple' ? document.getElementById('partnerDob').value : null
+      };
+
+      try {
+        const backendHost = (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+          ? window.location.hostname 
+          : '127.0.0.1';
+
+        const res = await fetch('https://cosmic-astrologer.onrender.com/api/v1/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || 'Backend API server error');
+        }
+
+        const data = await res.json();
+        if (currentMode === 'couple' && data.score && data.score !== 'N/A') {
+          scoreBadge.innerText = `💖 Compatibility Score: ${data.score}`;
+          scoreBadge.classList.remove('hidden');
+        } else {
+          scoreBadge.classList.add('hidden');
+        }
+
+        readingContent.innerHTML = data.analysis.replace(/\*\*(.*?)\*\*/g, '<strong class="text-amber-300">$1</strong>');
+        resultBox.classList.remove('hidden');
+        resultBox.scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        alert(`Error: ${err.message}. Please verify uvicorn backend is running.`);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = "🔮 Consult the Stars";
+      }
+    });
+  </script>
+</body>
+</html>

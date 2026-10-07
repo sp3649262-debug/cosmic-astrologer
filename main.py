@@ -1,11 +1,10 @@
 import os
 import re
-import traceback
 from typing import Optional
 from database import append_reading_record, init_excel_db
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from groq import Groq
+from groq import AsyncGroq
 from pydantic import BaseModel
 
 app = FastAPI(title="Cosmic AI Astrologer API")
@@ -18,7 +17,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 class AstroPayload(BaseModel):
     mode: str
     category: str
@@ -28,19 +26,14 @@ class AstroPayload(BaseModel):
     partner_name: Optional[str] = None
     partner_dob: Optional[str] = None
 
-
 @app.on_event("startup")
 def on_startup():
     init_excel_db()
 
-
 def extract_clean_reading(raw_text: str) -> str:
-    """Removes all thinking traces, meta tags, and intermediate steps."""
-    text = re.sub(
-        r"<think>[\s\S]*?</think>", "", raw_text, flags=re.IGNORECASE
-    ).strip()
+    """Removes thinking traces and extracts cleanly formatted astrological text."""
+    text = re.sub(r"<think>[\s\S]*?</think>", "", raw_text, flags=re.IGNORECASE).strip()
 
-    # Find the real astrological output starting point
     markers = ["🌟", "💖", "[COMPATIBILITY_SCORE", "**১.", "**1."]
     for marker in markers:
         idx = text.rfind(marker)
@@ -51,20 +44,19 @@ def extract_clean_reading(raw_text: str) -> str:
                 for skip in ["analyze user", "draft content", "thinking"]
             ):
                 return candidate
-
     return text
 
-
 @app.post("/api/v1/analyze")
-async def analyze_astrology(data: AstroPayload):
+async def analyze_astrology(data: AstroPayload, background_tasks: BackgroundTasks):
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(
             status_code=500,
-            detail="GROQ_API_KEY is missing. Please set $env:GROQ_API_KEY in terminal.",
+            detail="GROQ_API_KEY is missing. Please configure environment variable.",
         )
 
-    client = Groq(api_key=api_key)
+    # Async client non-blocking execution ke liye
+    client = AsyncGroq(api_key=api_key)
 
     lang_configs = {
         "Bengali": {
@@ -165,47 +157,23 @@ async def analyze_astrology(data: AstroPayload):
         Remedies to enhance love and understanding.
         """
 
-    # Dynamically find valid active chat models from the Groq API key
-    try:
-        available_models = [
-            m.id
-            for m in client.models.list().data
-            if m.active
-            and not any(
-                bad in m.id.lower()
-                for bad in ["whisper", "guard", "vision", "embed"]
-            )
-        ]
-    except Exception as e:
-        available_models = ["llama-3.3-70b-versatile"]
-
     raw_text = None
-    last_err = None
-
-    for model_name in available_models:
-        try:
-            completion = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a Vedic Astrologer. Output ONLY the final reading directly. Never output thinking process, planning notes, or English drafting text.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.5,
-            )
-            if completion.choices and completion.choices[0].message.content:
-                raw_text = completion.choices[0].message.content.strip()
-                break
-        except Exception as err:
-            last_err = err
-            continue
-
-    if not raw_text:
-        raise HTTPException(
-            status_code=500, detail=f"Generation failed: {str(last_err)}"
+    try:
+        completion = await client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a Vedic Astrologer. Output ONLY the final reading directly. Never output thinking process, planning notes, or English drafting text.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.5,
         )
+        if completion.choices and completion.choices[0].message.content:
+            raw_text = completion.choices[0].message.content.strip()
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(err)}")
 
     clean_text = extract_clean_reading(raw_text)
 
@@ -217,30 +185,20 @@ async def analyze_astrology(data: AstroPayload):
         else:
             pct_match = re.search(r"(\d+%)", clean_text)
             score = pct_match.group(1) if pct_match else "85%"
-        clean_text = re.sub(
-            r"\[COMPATIBILITY_SCORE:\s*\d+%\]\n*", "", clean_text
-        ).strip()
+        clean_text = re.sub(r"\[COMPATIBILITY_SCORE:\s*\d+%\]\n*", "", clean_text).strip()
 
-    # Save to CSV
-    try:
-        append_reading_record(
-            mode=data.mode,
-            category=data.category,
-            language=data.language,
-            user_name=data.user_name,
-            user_dob=data.user_dob,
-            partner_name=data.partner_name,
-            partner_dob=data.partner_dob,
-            score=score,
-            analysis_text=clean_text,
-        )
-    except Exception as db_err:
-        print(f"[CSV LOG ERROR]: {db_err}")
+    # Google Sheets operation background task mein chalao taaki user ko wait na karna pade
+    background_tasks.add_task(
+        append_reading_record,
+        mode=data.mode,
+        category=data.category,
+        language=data.language,
+        user_name=data.user_name,
+        user_dob=data.user_dob,
+        partner_name=data.partner_name,
+        partner_dob=data.partner_dob,
+        score=score,
+        analysis_text=clean_text,
+    )
 
     return {"status": "success", "score": score, "analysis": clean_text}
-
-from fastapi.responses import RedirectResponse
-
-@app.get("/records")
-def show_all_records():
-    return RedirectResponse(url="https://docs.google.com/spreadsheets/d/1ZDW06n4Gi1Uy6Z4gegNRoldneSuW2jmem_u7lakY5YU/edit")
